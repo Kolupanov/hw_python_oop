@@ -1,25 +1,25 @@
+from typing import Dict, Type, List
+from dataclasses import dataclass, asdict
+
+
+@dataclass
 class InfoMessage:
     """Информационное сообщение о тренировке."""
 
-    def __init__(self,
-                 training_type: str,
-                 duration: float,
-                 distance: float,
-                 speed: float,
-                 calories: float
-                 ) -> None:
-        self.training_type = training_type
-        self.duration = duration
-        self.distance = distance
-        self.speed = speed
-        self.calories = calories
+    training_type: str
+    duration: float
+    distance: float
+    speed: float
+    calories: float
+
+    MESSAGE = ('Тип тренировки: {training_type}; '
+               'Длительность: {duration:.3f} ч.; '
+               'Дистанция: {distance:.3f} км; '
+               'Ср. скорость: {speed:.3f} км/ч; '
+               'Потрачено ккал: {calories:.3f}.')
 
     def get_message(self) -> str:
-        return (f'Тип тренировки: {self.training_type}; '
-                f'Длительность: {self.duration:.3f} ч.; '
-                f'Дистанция: {self.distance:.3f} км; '
-                f'Ср. скорость: {self.speed:.3f} км/ч; '
-                f'Потрачено ккал: {self.calories:.3f}.')
+        return self.MESSAGE.format(**asdict(self))
 
 
 class Training:
@@ -50,7 +50,7 @@ class Training:
 
     def get_spent_calories(self) -> float:
         """Получить количество затраченных калорий."""
-        pass
+        raise NotImplementedError('Ошибка в расчетах калорий')
 
     def show_training_info(self) -> InfoMessage:
         """Вернуть информационное сообщение о выполненной тренировке."""
@@ -64,6 +64,9 @@ class Training:
 class Running(Training):
     """Тренировка: бег."""
 
+    COEFF_CALORIE_1: int = 18  # первый коэффициет калорий
+    COEFF_CALORIE_2: int = 20  # второй коэффициент калорий
+
     def __init__(self,
                  action: int,
                  duration: float,
@@ -73,17 +76,23 @@ class Running(Training):
 
     def get_spent_calories(self) -> float:
         """Переопределяем метод количества затраченных калорий."""
-        coeff_calorie_1: int = 18  # первый коэффициет калорий
-        coeff_calorie_2: int = 20  # второй коэффициент калорий
+
         # время тренировки в минутах
         duration_minute = self.duration * self.HOUR_IN_MINUTE
-        calories = ((coeff_calorie_1 * self.get_mean_speed() - coeff_calorie_2)
-                    * self.weight / self.M_IN_KM * duration_minute)
+        calories = ((self.COEFF_CALORIE_1
+                    * self.get_mean_speed()
+                    - self.COEFF_CALORIE_2)
+                    * self.weight
+                    / self.M_IN_KM
+                    * duration_minute)
         return calories
 
 
 class SportsWalking(Training):
     """Тренировка: спортивная ходьба."""
+
+    COEFF_CALORIE_1: float = 0.035  # первый коэффициет калорий
+    COEFF_CALORIE_2: float = 0.029  # второй коэффициент калорий
 
     def __init__(self,
                  action: int,
@@ -96,14 +105,15 @@ class SportsWalking(Training):
 
     def get_spent_calories(self) -> float:
         """Переопределяем метод количества затраченных калорий."""
-        coeff_calorie_1 = 0.035  # первый коэффициет калорий
-        coeff_calorie_2 = 0.029  # второй коэффициент калорий
+
         # время тренировки в минутах
         duration_minute = self.duration * self.HOUR_IN_MINUTE
-        calories = ((coeff_calorie_1
+        calories = ((self.COEFF_CALORIE_1
                     * self.weight
                     + (self.get_mean_speed()**2 // self.height)
-                    * coeff_calorie_2 * self.weight) * duration_minute)
+                    * self.COEFF_CALORIE_2
+                    * self.weight)
+                    * duration_minute)
         return calories
 
 
@@ -111,6 +121,8 @@ class Swimming(Training):
     """Тренировка: плавание."""
 
     LEN_STEP: float = 1.38  # один гребок
+    COEFF_CALORIE_1: float = 1.1  # первый коэффициет калорий
+    COEFF_CALORIE_2: float = 2  # второй коэффициент калорий
 
     def __init__(self,
                  action: int,
@@ -140,24 +152,22 @@ class Swimming(Training):
 
     def get_spent_calories(self) -> float:
         """Переопределяем метод количества затраченных калорий."""
-        coeff_calorie_1 = 1.1  # первый коэффициет калорий
-        coeff_calorie_2 = 2  # второй коэффициент калорий
         calories = ((self.get_mean_speed()
-                    + coeff_calorie_1)
-                    * coeff_calorie_2
+                    + self.COEFF_CALORIE_1)
+                    * self.COEFF_CALORIE_2
                     * self.weight)
         return calories
 
 
-def read_package(workout_type: str, data: list) -> Training:
+def read_package(workout_type: str, data: List[int]) -> Training:
     """Прочитать данные полученные от датчиков."""
-    workout_types = {
+    workout_types: Dict[str, Type[Training]] = {
         'SWM': Swimming,
         'RUN': Running,
-        'WLK': SportsWalking
-    }
-    workout = workout_types[workout_type](*data)
-    return workout
+        'WLK': SportsWalking}
+    if workout_type not in workout_types.keys():
+        raise KeyError('Передан неверный тип тренировки')
+    return workout_types[workout_type](*data)
 
 
 def main(training: Training) -> None:
